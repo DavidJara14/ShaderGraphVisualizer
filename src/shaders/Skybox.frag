@@ -132,16 +132,16 @@ void main() {
   // === PLANET GAS PATTERNS ===
   float timeVal = uTime;
 
-  // Two FBM layers with different drift directions for flowing gas
-  vec2 drift1 = timeVal * _Fog1VelocityMult;
-  vec2 drift2 = timeVal * _Fog2VelocityMult;
+  // Flowing gas drift — amplify velocity for visible surface movement
+  vec2 drift1 = timeVal * _Fog1VelocityMult * 8.0;
+  vec2 drift2 = timeVal * _Fog2VelocityMult * 6.0;
 
-  // Layer 1: main gas flow (scale 3 = medium detail)
+  // Layer 1: main gas flow — large bands drifting across surface
   float gas1 = fbm(planetUv * 3.0, drift1);
-  // Layer 2: secondary flow with different scale and direction
-  float gas2 = fbm(planetUv * 3.5 + vec2(5.0, 3.0), drift2 * 1.3);
-  // Layer 3: fine detail at higher frequency
-  float gas3 = fbm(planetUv * 6.0 + vec2(10.0, 7.0), drift1 * 0.7 + drift2 * 0.5);
+  // Layer 2: secondary flow with different scale and opposing direction
+  float gas2 = fbm(planetUv * 3.5 + vec2(5.0, 3.0), drift2 * -1.3);
+  // Layer 3: fine turbulence detail at higher frequency, slower drift
+  float gas3 = fbm(planetUv * 6.0 + vec2(10.0, 7.0), drift1 * 0.4 + drift2 * 0.3);
 
   // Combine gas layers into caustic-like interference pattern
   float causticPattern = gas1 * gas2;  // multiply creates interference veins
