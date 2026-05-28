@@ -15,6 +15,7 @@ export class PreviewController {
   private envMap: THREE.CubeTexture | null = null;
   private isSkyboxMode = false;
   private timeUniformRef: THREE.IUniform | null = null;
+  private skyboxZoomHandler: ((e: WheelEvent) => void) | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -108,6 +109,11 @@ export class PreviewController {
     this.timeUniformRef = material.uniforms['uTime'] ?? null;
 
     if (isSkybox) {
+      // Remove any existing skybox zoom handler
+      if (this.skyboxZoomHandler) {
+        this.renderer.domElement.removeEventListener('wheel', this.skyboxZoomHandler);
+        this.skyboxZoomHandler = null;
+      }
       // Place camera at center of skybox sphere, looking outward
       this.camera.position.set(0, 0, 0.001);
       this.camera.fov = 60;
@@ -119,7 +125,20 @@ export class PreviewController {
       this.controls.minDistance = 0.001;
       this.controls.maxDistance = 0.002;
       this.controls.update();
+
+      // FOV-based zoom for skybox (scroll wheel changes field of view)
+      this.skyboxZoomHandler = (e: WheelEvent) => {
+        e.preventDefault();
+        this.camera.fov = Math.max(10, Math.min(90, this.camera.fov + e.deltaY * 0.05));
+        this.camera.updateProjectionMatrix();
+      };
+      this.renderer.domElement.addEventListener('wheel', this.skyboxZoomHandler);
     } else {
+      // Remove skybox zoom handler if present
+      if (this.skyboxZoomHandler) {
+        this.renderer.domElement.removeEventListener('wheel', this.skyboxZoomHandler);
+        this.skyboxZoomHandler = null;
+      }
       // Restore normal preview camera
       this.camera.position.set(0, 0, 3);
       this.camera.fov = 45;
