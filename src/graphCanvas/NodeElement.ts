@@ -35,6 +35,8 @@ const TYPE_COLORS: Record<string, string> = {
   ViewDirectionNode: '#00838f',
   BranchNode: '#bf360c',
   RedirectNodeData: '#555',
+  // Input value node (synthetic)
+  _InputValueNode: '#444',
 };
 
 const HEADER_H = 24;
@@ -42,6 +44,11 @@ const PORT_R = 5;
 const PORT_GAP = 20;
 const MIN_W = 150;
 const SIDE_PAD = 12;
+
+// External input node dimensions
+const INPUT_NODE_W = 80;
+const INPUT_NODE_H = 28;
+const INPUT_NODE_GAP_X = 30; // horizontal gap between input node and main node
 
 export function getNodeColor(typeName: string): string {
   return TYPE_COLORS[typeName] ?? '#555';
@@ -52,6 +59,20 @@ export interface PortPosition {
   slotId: number;
   x: number;
   y: number;
+}
+
+/** Info about an external input value node to be created */
+export interface InputValueNode {
+  slotId: number;
+  displayName: string;
+  valueText: string;
+  /** Position relative to the parent node's origin */
+  relX: number;
+  relY: number;
+  width: number;
+  height: number;
+  /** The input port position on the main node (relative to main node origin) */
+  portY: number;
 }
 
 /**
@@ -81,10 +102,10 @@ function formatDefaultValue(slot: SlotInfo): string | null {
         return formatNum(v.x);
       }
       if (vt.includes('Vector2') || vt.includes('UV')) {
-        return `${formatNum(v.x)} ${formatNum(v.y)}`;
+        return `(${formatNum(v.x)}, ${formatNum(v.y)})`;
       }
       if (vt.includes('Vector3') || vt.includes('Normal')) {
-        return `${formatNum(v.x)} ${formatNum(v.y)} ${formatNum(v.z)}`;
+        return `(${formatNum(v.x)}, ${formatNum(v.y)}, ${formatNum(v.z)})`;
       }
       // For Dynamic/DynamicValue/DynamicVector/Vector4 slots:
       // Apply heuristic — if y/z/w are padding (same filler value), show just x as scalar
@@ -92,9 +113,9 @@ function formatDefaultValue(slot: SlotInfo): string | null {
         return formatNum(v.x);
       }
       // Otherwise show all components present
-      if ('w' in v) return `${formatNum(v.x)} ${formatNum(v.y)} ${formatNum(v.z)} ${formatNum(v.w)}`;
-      if ('z' in v) return `${formatNum(v.x)} ${formatNum(v.y)} ${formatNum(v.z)}`;
-      if ('y' in v) return `${formatNum(v.x)} ${formatNum(v.y)}`;
+      if ('w' in v) return `(${formatNum(v.x)}, ${formatNum(v.y)}, ${formatNum(v.z)}, ${formatNum(v.w)})`;
+      if ('z' in v) return `(${formatNum(v.x)}, ${formatNum(v.y)}, ${formatNum(v.z)})`;
+      if ('y' in v) return `(${formatNum(v.x)}, ${formatNum(v.y)})`;
       return formatNum(v.x);
     }
     if ('r' in v) {
@@ -114,7 +135,7 @@ export function createNodeSVG(
   node: NodeInfo,
   connectedInputSlots: Set<string>,
   texturePath?: string | null,
-): { group: SVGGElement; ports: PortPosition[] } {
+): { group: SVGGElement; ports: PortPosition[]; inputValueNodes: InputValueNode[] } {
   const ns = 'http://www.w3.org/2000/svg';
   const g = document.createElementNS(ns, 'g') as SVGGElement;
   g.classList.add('sg-node');
@@ -154,10 +175,11 @@ export function createNodeSVG(
   title.classList.add('node-title');
   title.setAttribute('x', String(SIDE_PAD));
   title.setAttribute('y', '16');
-  title.textContent = displayName.length > 22 ? displayName.slice(0, 20) + '…' : displayName;
+  title.textContent = displayName.length > 22 ? displayName.slice(0, 20) + '...' : displayName;
   g.appendChild(title);
 
   const ports: PortPosition[] = [];
+  const inputValueNodes: InputValueNode[] = [];
 
   // Input ports
   inputs.forEach((slot, i) => {
@@ -178,17 +200,21 @@ export function createNodeSVG(
     label.textContent = labelText;
     g.appendChild(label);
 
-    // Show inline default value if this port is NOT connected
+    // If this port is NOT connected, create an external input value node
     const portKey = `${node.id}:${slot.slotId}`;
     if (!connectedInputSlots.has(portKey)) {
       const defVal = formatDefaultValue(slot);
       if (defVal !== null) {
-        const valText = document.createElementNS(ns, 'text');
-        valText.classList.add('port-default-value');
-        valText.setAttribute('x', String(PORT_R + 5));
-        valText.setAttribute('y', String(cy + 14));
-        valText.textContent = defVal;
-        g.appendChild(valText);
+        inputValueNodes.push({
+          slotId: slot.slotId,
+          displayName: slot.displayName,
+          valueText: defVal,
+          relX: -(INPUT_NODE_W + INPUT_NODE_GAP_X),
+          relY: cy - INPUT_NODE_H / 2,
+          width: INPUT_NODE_W,
+          height: INPUT_NODE_H,
+          portY: cy,
+        });
       }
     }
 
@@ -246,7 +272,51 @@ export function createNodeSVG(
     g.appendChild(img);
   }
 
-  return { group: g, ports };
+  return { group: g, ports, inputValueNodes };
+}
+
+/** Create an SVG group for an external input value node */
+export function createInputValueNodeSVG(
+  valueText: string,
+  width: number,
+  height: number,
+): SVGGElement {
+  const ns = 'http://www.w3.org/2000/svg';
+  const g = document.createElementNS(ns, 'g') as SVGGElement;
+  g.classList.add('sg-input-value-node');
+
+  // Body
+  const body = document.createElementNS(ns, 'rect');
+  body.setAttribute('width', String(width));
+  body.setAttribute('height', String(height));
+  body.setAttribute('rx', '4');
+  body.setAttribute('ry', '4');
+  body.setAttribute('fill', '#3a3a3a');
+  body.setAttribute('stroke', '#666');
+  body.setAttribute('stroke-width', '1');
+  g.appendChild(body);
+
+  // Value text
+  const text = document.createElementNS(ns, 'text');
+  text.setAttribute('x', String(width / 2));
+  text.setAttribute('y', String(height / 2 + 4));
+  text.setAttribute('text-anchor', 'middle');
+  text.setAttribute('fill', '#8ab4f8');
+  text.setAttribute('font-size', '10');
+  text.textContent = valueText;
+  g.appendChild(text);
+
+  // Output port circle on right side
+  const circle = document.createElementNS(ns, 'circle');
+  circle.setAttribute('cx', String(width));
+  circle.setAttribute('cy', String(height / 2));
+  circle.setAttribute('r', '4');
+  circle.setAttribute('fill', '#8ab4f8');
+  circle.setAttribute('stroke', '#8ab4f8');
+  circle.setAttribute('stroke-width', '1');
+  g.appendChild(circle);
+
+  return g;
 }
 
 function getTypeShort(valueType: string): string {

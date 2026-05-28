@@ -319,6 +319,23 @@ html, body {
   stroke-width: 2;
 }
 
+/* External input value nodes */
+.sg-input-value-node rect {
+  opacity: 0.9;
+}
+
+.sg-input-value-node text {
+  pointer-events: none;
+}
+
+.sg-wire-input-value {
+  fill: none;
+  stroke: #8ab4f8;
+  stroke-width: 1.5;
+  opacity: 0.45;
+  stroke-dasharray: 4 2;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

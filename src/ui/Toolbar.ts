@@ -11,6 +11,8 @@ export class Toolbar {
   private shaderNames: string[];
   private callbacks: ToolbarCallbacks;
   private autoRotate = true;
+  private meshSelect!: HTMLSelectElement;
+  private rotateBtn!: HTMLButtonElement;
 
   constructor(container: HTMLElement, shaderNames: string[], callbacks: ToolbarCallbacks) {
     this.container = container;
@@ -36,27 +38,40 @@ export class Toolbar {
     // Mesh selector
     const meshLabel = document.createElement('label');
     meshLabel.textContent = 'Mesh';
-    const meshSelect = document.createElement('select');
+    this.meshSelect = document.createElement('select');
     for (const m of MESHES) {
       const opt = document.createElement('option');
       opt.value = m;
       opt.textContent = m;
-      meshSelect.appendChild(opt);
+      this.meshSelect.appendChild(opt);
     }
-    meshSelect.addEventListener('change', () => {
-      this.callbacks.onMeshChange(meshSelect.value);
+    this.meshSelect.addEventListener('change', () => {
+      this.callbacks.onMeshChange(this.meshSelect.value);
     });
 
     // Auto-rotate toggle
-    const rotateBtn = document.createElement('button');
-    rotateBtn.textContent = 'Auto-Rotate';
-    rotateBtn.className = 'active';
-    rotateBtn.addEventListener('click', () => {
+    this.rotateBtn = document.createElement('button');
+    this.rotateBtn.textContent = 'Auto-Rotate';
+    this.rotateBtn.className = 'active';
+    this.rotateBtn.addEventListener('click', () => {
       this.autoRotate = !this.autoRotate;
-      rotateBtn.classList.toggle('active', this.autoRotate);
+      this.rotateBtn.classList.toggle('active', this.autoRotate);
       this.callbacks.onAutoRotateToggle(this.autoRotate);
     });
 
-    this.container.append(shaderLabel, shaderSelect, meshLabel, meshSelect, rotateBtn);
+    this.container.append(shaderLabel, shaderSelect, meshLabel, this.meshSelect, this.rotateBtn);
+  }
+
+  /** Apply per-shader defaults for mesh and autoRotate */
+  applyDefaults(defaultMesh?: string, defaultAutoRotate?: boolean) {
+    if (defaultMesh && defaultMesh !== this.meshSelect.value) {
+      this.meshSelect.value = defaultMesh;
+      this.callbacks.onMeshChange(defaultMesh);
+    }
+    if (defaultAutoRotate !== undefined) {
+      this.autoRotate = defaultAutoRotate;
+      this.rotateBtn.classList.toggle('active', this.autoRotate);
+      this.callbacks.onAutoRotateToggle(this.autoRotate);
+    }
   }
 }

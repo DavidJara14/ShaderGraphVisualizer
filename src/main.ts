@@ -9,7 +9,16 @@ import { ShaderBinding } from './preview/ShaderBinding';
 import { GraphModel } from './shaderGraph/types';
 import { getShaderPair } from './shaders/registry';
 
-const SHADER_MANIFEST: { name: string; path: string; textures?: Record<string, string>; propertyOverrides?: Record<string, unknown> }[] = [
+interface ShaderEntry {
+  name: string;
+  path: string;
+  textures?: Record<string, string>;
+  propertyOverrides?: Record<string, unknown>;
+  defaultMesh?: string;
+  defaultAutoRotate?: boolean;
+}
+
+const SHADER_MANIFEST: ShaderEntry[] = [
   {
     name: 'Probeta',
     path: 'Shaders/Probeta/Probeta.shadergraph',
@@ -19,16 +28,31 @@ const SHADER_MANIFEST: { name: string; path: string; textures?: Record<string, s
       _NormalMap: 'Shaders/Probeta/NormalMap.png',
       _RoughnessMap: 'Shaders/Probeta/RoughtnessMap.png',
     },
+    defaultMesh: 'Plane',
+    defaultAutoRotate: false,
   },
-  { name: 'Lija', path: 'Shaders/Lija/Lija.shadergraph' },
+  {
+    name: 'Lija',
+    path: 'Shaders/Lija/Lija.shadergraph',
+    defaultMesh: 'Plane',
+    defaultAutoRotate: false,
+    propertyOverrides: {
+      _ColorDeLija: { r: 0.071, g: 0.071, b: 0.071, a: 1.0 },
+    },
+  },
   {
     name: 'WaterBottle',
     path: 'Shaders/WaterBottle/WaterBottle.shadergraph',
     propertyOverrides: {
       _MinMaxFillx100: { x: -100, y: 100, z: 0, w: 0 },
     },
+    defaultMesh: 'Capsule',
   },
-  { name: 'Skybox', path: 'Shaders/Skybox/SkyboxMovil.shadergraph', textures: { _StarsTexture: 'Shaders/Skybox/Stars.png' } },
+  {
+    name: 'Skybox',
+    path: 'Shaders/Skybox/SkyboxMovil.shadergraph',
+    textures: { _StarsTexture: 'Shaders/Skybox/Stars.png' },
+  },
   { name: 'SnapPreview', path: 'Shaders/SnapPreview/SnapPreview.shadergraph' },
 ];
 
@@ -38,6 +62,7 @@ let blackboard: Blackboard;
 let inspector: Inspector;
 let preview: PreviewController;
 let shaderBinding: ShaderBinding;
+let toolbar: Toolbar;
 
 async function loadShader(index: number) {
   try {
@@ -61,6 +86,9 @@ async function loadShader(index: number) {
 
     const pair = getShaderPair(entry.name);
     shaderBinding.bind(currentModel, pair, entry.textures);
+
+    // Apply per-shader defaults for mesh and autorotate
+    toolbar.applyDefaults(entry.defaultMesh, entry.defaultAutoRotate);
   } catch (e) {
     console.error('loadShader failed:', e);
   }
@@ -81,7 +109,7 @@ function init() {
   });
   inspector = new Inspector(inspContent);
 
-  const toolbar = new Toolbar(toolbarEl, SHADER_MANIFEST.map(s => s.name), {
+  toolbar = new Toolbar(toolbarEl, SHADER_MANIFEST.map(s => s.name), {
     onShaderChange: (idx) => loadShader(idx),
     onMeshChange: (mesh) => preview.setMesh(mesh),
     onAutoRotateToggle: (on) => preview.setAutoRotate(on),

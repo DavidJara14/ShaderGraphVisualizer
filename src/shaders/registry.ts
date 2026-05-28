@@ -38,7 +38,7 @@ const registry: Record<string, ShaderPair> = {
     vertexShader: LijaVert,
     fragmentShader: LijaFrag,
     defaultUniforms: {
-      _ColorDeLija: { type: 'vec4', value: { x: 0.133, y: 0.133, z: 0.133, w: 1.0 } },
+      _ColorDeLija: { type: 'vec4', value: { x: 0.071, y: 0.071, z: 0.071, w: 1.0 } },
       _TamanioDeLija: { type: 'float', value: 80.0 },
       _MinMax: { type: 'vec2', value: { x: 0.0, y: 1000.0 } },
       _DensityMultiplyer: { type: 'float', value: 1.0 },

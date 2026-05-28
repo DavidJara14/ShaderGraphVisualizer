@@ -1,5 +1,5 @@
 import { GraphModel, EdgeInfo, NodeInfo } from '../shaderGraph/types';
-import { createNodeSVG, PortPosition } from './NodeElement';
+import { createNodeSVG, createInputValueNodeSVG, PortPosition, InputValueNode } from './NodeElement';
 import { createWirePath, updateWirePath } from './WireRenderer';
 
 const ns = 'http://www.w3.org/2000/svg';
@@ -10,6 +10,12 @@ interface NodeState {
   ports: PortPosition[];
   x: number;
   y: number;
+  /** External input value nodes attached to this node */
+  inputValueNodes: {
+    info: InputValueNode;
+    group: SVGGElement;
+    wire: SVGPathElement;
+  }[];
 }
 
 export class GraphCanvas {
@@ -19,10 +25,11 @@ export class GraphCanvas {
   private wireGroup!: SVGGElement;
   private nodeGroup!: SVGGElement;
   private contextGroup!: SVGGElement;
+  private inputNodeGroup!: SVGGElement;
 
   private nodeStates: Map<string, NodeState> = new Map();
   private wires: { path: SVGPathElement; edge: EdgeInfo }[] = [];
-  private contextBlockMap: Map<string, string> = new Map(); // blockId → 'Vertex'|'Fragment'
+  private contextBlockMap: Map<string, string> = new Map(); // blockId -> 'Vertex'|'Fragment'
   private contextElements: Map<string, { rect: SVGRectElement; label: SVGTextElement; x: number; y: number }> = new Map();
 
   private viewX = 0;
@@ -51,10 +58,12 @@ export class GraphCanvas {
 
     this.contentGroup = document.createElementNS(ns, 'g');
     this.contextGroup = document.createElementNS(ns, 'g');
+    this.inputNodeGroup = document.createElementNS(ns, 'g');
     this.wireGroup = document.createElementNS(ns, 'g');
     this.nodeGroup = document.createElementNS(ns, 'g');
 
     this.contentGroup.appendChild(this.contextGroup);
+    this.contentGroup.appendChild(this.inputNodeGroup);
     this.contentGroup.appendChild(this.wireGroup);
     this.contentGroup.appendChild(this.nodeGroup);
     this.svg.appendChild(this.contentGroup);
@@ -117,7 +126,7 @@ export class GraphCanvas {
                 e.preventDefault();
                 const contextKey = this.contextBlockMap.get(nodeId);
                 if (contextKey) {
-                  // Dragging a block node → drag entire context group
+                  // Dragging a block node -> drag entire context group
                   const groupNodes: NodeState[] = [];
                   for (const [blockId, ctx] of this.contextBlockMap) {
                     if (ctx === contextKey) {
@@ -164,6 +173,8 @@ export class GraphCanvas {
             ns.x += dx;
             ns.y += dy;
             ns.group.setAttribute('transform', `translate(${ns.x}, ${ns.y})`);
+            // Move attached input value nodes
+            this.updateInputValueNodePositions(ns);
           }
           // Move the context box
           const ctxEl = this.contextElements.get(this.dragGroup.contextKey);
@@ -179,6 +190,8 @@ export class GraphCanvas {
           this.dragNode.x = newX;
           this.dragNode.y = newY;
           this.dragNode.group.setAttribute('transform', `translate(${this.dragNode.x}, ${this.dragNode.y})`);
+          // Move attached input value nodes
+          this.updateInputValueNodePositions(this.dragNode);
         }
         this.updateWires();
       }
@@ -219,6 +232,7 @@ export class GraphCanvas {
     this.nodeGroup.innerHTML = '';
     this.wireGroup.innerHTML = '';
     this.contextGroup.innerHTML = '';
+    this.inputNodeGroup.innerHTML = '';
 
     // Build set of connected input slots (nodeId:slotId) so nodes can hide defaults for connected ports
     const connectedInputSlots = new Set<string>();
@@ -226,9 +240,7 @@ export class GraphCanvas {
       connectedInputSlots.add(`${edge.inputNodeId}:${edge.inputSlotId}`);
     }
 
-    // Build texture node map: nodeId → texture file path
-    // Traces edges from SampleTexture2D/Texture2DAsset nodes downstream to BlockNodes
-    // to determine which texture each node represents
+    // Build texture node map: nodeId -> texture file path
     const textureNodeMap = this.buildTextureNodeMap(model, texturePaths);
 
     // Build context-to-block mapping for group dragging
@@ -247,7 +259,6 @@ export class GraphCanvas {
     for (const node of model.nodes) {
       if (node.isBlock && node.position.width === 0) {
         // Block nodes with zero size are placed inside context boxes
-        // Give them reasonable positions relative to their context
         const inVertex = model.vertexContext.blockIds.includes(node.id);
         const ctx = inVertex ? model.vertexContext : model.fragmentContext;
         const blockIndex = (inVertex ? model.vertexContext : model.fragmentContext)
@@ -261,12 +272,33 @@ export class GraphCanvas {
       }
 
       const texPath = textureNodeMap.get(node.id) ?? null;
-      const { group, ports } = createNodeSVG(node, connectedInputSlots, texPath);
+      const { group, ports, inputValueNodes } = createNodeSVG(node, connectedInputSlots, texPath);
       const x = node.position.x;
       const y = node.position.y;
       group.setAttribute('transform', `translate(${x}, ${y})`);
       this.nodeGroup.appendChild(group);
-      this.nodeStates.set(node.id, { node, group, ports, x, y });
+
+      const state: NodeState = { node, group, ports, x, y, inputValueNodes: [] };
+
+      // Create external input value nodes
+      for (const ivn of inputValueNodes) {
+        const ivnGroup = createInputValueNodeSVG(ivn.valueText, ivn.width, ivn.height);
+        const ivnX = x + ivn.relX;
+        const ivnY = y + ivn.relY;
+        ivnGroup.setAttribute('transform', `translate(${ivnX}, ${ivnY})`);
+        this.inputNodeGroup.appendChild(ivnGroup);
+
+        // Wire from input value node's output port to main node's input port
+        const wireFrom = { x: ivnX + ivn.width, y: ivnY + ivn.height / 2 };
+        const wireTo = { x: x, y: y + ivn.portY };
+        const wire = createWirePath(wireFrom, wireTo);
+        wire.classList.add('sg-wire-input-value');
+        this.wireGroup.appendChild(wire);
+
+        state.inputValueNodes.push({ info: ivn, group: ivnGroup, wire });
+      }
+
+      this.nodeStates.set(node.id, state);
     }
 
     // Render wires
@@ -318,16 +350,13 @@ export class GraphCanvas {
   }
 
   /**
-   * Build a map of nodeId → texture file path for SampleTexture2D and Texture2DAsset nodes.
-   * Uses BFS from each texture-related node to find which BlockNode it feeds into,
-   * then maps the block descriptor (e.g. "BaseColor") to the texture uniform name
-   * and resolves the file path from the shader manifest's texturePaths.
+   * Build a map of nodeId -> texture file path for SampleTexture2D and Texture2DAsset nodes.
    */
   private buildTextureNodeMap(model: GraphModel, texturePaths?: Record<string, string>): Map<string, string> {
     const result = new Map<string, string>();
     if (!texturePaths) return result;
 
-    // Block descriptor suffix → uniform name mapping
+    // Block descriptor suffix -> uniform name mapping
     const blockToUniform: Record<string, string[]> = {
       'BaseColor': ['_DiffuseMap', '_DifusionMap', '_Diffuse', '_Albedo', '_MainTex'],
       'Metallic': ['_MetallicMap', '_Metallic'],
@@ -337,15 +366,15 @@ export class GraphCanvas {
       'Emission': ['_EmissionMap', '_Emission'],
     };
 
-    // Build adjacency list (output node → input node edges)
+    // Build adjacency list (output node -> input node edges)
     const adj = new Map<string, { to: string }[]>();
     for (const edge of model.edges) {
       if (!adj.has(edge.outputNodeId)) adj.set(edge.outputNodeId, []);
       adj.get(edge.outputNodeId)!.push({ to: edge.inputNodeId });
     }
 
-    // Also build reverse adjacency for Texture2DAsset → SampleTexture2D tracing
-    const reverseAdj = new Map<string, string[]>(); // inputNode → outputNodes
+    // Also build reverse adjacency for Texture2DAsset -> SampleTexture2D tracing
+    const reverseAdj = new Map<string, string[]>(); // inputNode -> outputNodes
     for (const edge of model.edges) {
       if (!reverseAdj.has(edge.inputNodeId)) reverseAdj.set(edge.inputNodeId, []);
       reverseAdj.get(edge.inputNodeId)!.push(edge.outputNodeId);
@@ -366,7 +395,6 @@ export class GraphCanvas {
 
         const curNode = model.nodesById.get(cur);
         if (curNode?.isBlock && curNode.serializedDescriptor) {
-          // Extract the last part: "SurfaceDescription.BaseColor" → "BaseColor"
           foundBlock = curNode.serializedDescriptor.split('.').pop() ?? null;
           break;
         }
@@ -376,7 +404,6 @@ export class GraphCanvas {
       }
 
       if (foundBlock) {
-        // Find matching uniform name from block descriptor
         const candidates = blockToUniform[foundBlock] ?? [];
         for (const uniformName of candidates) {
           if (uniformName in texturePaths) {
@@ -387,8 +414,7 @@ export class GraphCanvas {
       }
     }
 
-    // For Texture2DAssetNodes: find which SampleTexture2D it feeds via edges,
-    // and use the same texture path
+    // For Texture2DAssetNodes: find which SampleTexture2D it feeds via edges
     const assetNodes = model.nodes.filter(n => n.typeName === 'Texture2DAssetNode');
     for (const assetNode of assetNodes) {
       const downstream = adj.get(assetNode.id) || [];
@@ -402,6 +428,19 @@ export class GraphCanvas {
     }
 
     return result;
+  }
+
+  /** Update positions of input value nodes and their wires when a node is dragged */
+  private updateInputValueNodePositions(state: NodeState) {
+    for (const ivn of state.inputValueNodes) {
+      const ivnX = state.x + ivn.info.relX;
+      const ivnY = state.y + ivn.info.relY;
+      ivn.group.setAttribute('transform', `translate(${ivnX}, ${ivnY})`);
+
+      const wireFrom = { x: ivnX + ivn.info.width, y: ivnY + ivn.info.height / 2 };
+      const wireTo = { x: state.x, y: state.y + ivn.info.portY };
+      updateWirePath(ivn.wire, wireFrom, wireTo);
+    }
   }
 
   private updateWires() {
@@ -425,7 +464,11 @@ export class GraphCanvas {
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const state of this.nodeStates.values()) {
-      minX = Math.min(minX, state.x);
+      // Include input value nodes in bounding box
+      const nodeMinX = state.inputValueNodes.length > 0
+        ? state.x + state.inputValueNodes[0].info.relX
+        : state.x;
+      minX = Math.min(minX, nodeMinX);
       minY = Math.min(minY, state.y);
       maxX = Math.max(maxX, state.x + (state.node.position.width || 200));
       maxY = Math.max(maxY, state.y + (state.node.position.height || 100));
