@@ -5,16 +5,20 @@ type ChangeCallback = (referenceName: string, value: unknown) => void;
 export class Blackboard {
   private container: HTMLElement;
   private onChange: ChangeCallback;
+  private autoLoadedTextures: Set<string> = new Set();
 
   constructor(container: HTMLElement, onChange: ChangeCallback) {
     this.container = container;
     this.onChange = onChange;
   }
 
-  setModel(model: GraphModel) {
+  setModel(model: GraphModel, autoLoadedTextures?: Set<string>) {
     this.container.innerHTML = '';
+    this.autoLoadedTextures = autoLoadedTextures ?? new Set();
     for (const prop of model.properties) {
       if (prop.hidden) continue;
+      // Skip texture properties that are auto-loaded from manifest
+      if (prop.type === 'texture2d' && this.autoLoadedTextures.has(prop.referenceName)) continue;
       const el = this.createEditor(prop);
       if (el) this.container.appendChild(el);
     }

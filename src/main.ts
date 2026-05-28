@@ -81,7 +81,8 @@ async function loadShader(index: number) {
     }
 
     graphCanvas.setModel(currentModel, entry.textures);
-    blackboard.setModel(currentModel);
+    const autoTextures = entry.textures ? new Set(Object.keys(entry.textures)) : undefined;
+    blackboard.setModel(currentModel, autoTextures);
     inspector.setModel(currentModel, entry.name);
 
     const pair = getShaderPair(entry.name);
