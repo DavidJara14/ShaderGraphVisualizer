@@ -336,6 +336,63 @@ html, body {
   stroke-dasharray: 4 2;
 }
 
+/* Resize handles */
+.resize-handle-h {
+  width: 4px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: var(--border);
+  opacity: 0.3;
+  transition: opacity 0.15s;
+  z-index: 10;
+  position: relative;
+}
+
+/* Invisible wider hit area for easier grabbing */
+.resize-handle-h::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -6px;
+  right: -6px;
+  cursor: col-resize;
+}
+
+.resize-handle-h:hover,
+.resize-handle-h.active {
+  opacity: 1;
+  background: var(--accent);
+}
+
+.resize-handle-v {
+  height: 4px;
+  flex-shrink: 0;
+  cursor: row-resize;
+  background: var(--border);
+  opacity: 0.3;
+  transition: opacity 0.15s;
+  z-index: 10;
+  position: relative;
+}
+
+/* Invisible taller hit area for easier grabbing */
+.resize-handle-v::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -6px;
+  bottom: -6px;
+  cursor: row-resize;
+}
+
+.resize-handle-v:hover,
+.resize-handle-v.active {
+  opacity: 1;
+  background: var(--accent);
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

@@ -51,7 +51,7 @@ const registry: Record<string, ShaderPair> = {
       _ColorAgua: { type: 'vec4', value: { x: 0.0, y: 0.44, z: 0.44, w: 1.0 } },
       _ColorAguaSuperficie: { type: 'vec4', value: { x: 0.35, y: 0.99, z: 0.67, w: 1.0 } },
       _MinMaxFillx100: { type: 'vec2', value: { x: -100.0, y: 100.0 } },
-      _FillPercentage: { type: 'float', value: 26.0 },
+      _FillPercentage: { type: 'float', value: 45.0 },
       _Multiply_Color: { type: 'vec4', value: { x: 0.47, y: 0.47, z: 0.47, w: 1.0 } },
     },
   },

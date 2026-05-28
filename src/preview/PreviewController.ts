@@ -129,7 +129,7 @@ export class PreviewController {
       // FOV-based zoom for skybox (scroll wheel changes field of view)
       this.skyboxZoomHandler = (e: WheelEvent) => {
         e.preventDefault();
-        this.camera.fov = Math.max(10, Math.min(90, this.camera.fov + e.deltaY * 0.05));
+        this.camera.fov = Math.max(10, Math.min(140, this.camera.fov + e.deltaY * 0.05));
         this.camera.updateProjectionMatrix();
       };
       this.renderer.domElement.addEventListener('wheel', this.skyboxZoomHandler);
