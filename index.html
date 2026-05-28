@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShaderGraph Visualizer</title>
+  <!-- CSS imported via main.ts for Vite HMR -->
+</head>
+<body>
+  <div id="app">
+    <div id="toolbar"></div>
+    <div id="main">
+      <div id="blackboard" class="panel">
+        <div class="panel-header">Blackboard</div>
+        <div id="blackboard-content"></div>
+      </div>
+      <div id="graph-canvas"></div>
+      <div id="right-panels">
+        <div id="inspector" class="panel">
+          <div class="panel-header">Inspector</div>
+          <div id="inspector-content"></div>
+        </div>
+        <div id="preview" class="panel">
+          <div class="panel-header">Main Preview</div>
+          <div id="preview-container"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
