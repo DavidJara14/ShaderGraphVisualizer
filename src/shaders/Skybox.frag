@@ -173,10 +173,22 @@ void main() {
   float fadeVal = clamp(posNorm.z, 0.0, 1.0);
   float fadeMask = pow(fadeVal, _Fadeout);
 
+  // === SLOW SKY ROTATION (simulates Unity Time node) ===
+  // Rotate the view direction around Y axis for star/nebula orbiting
+  float skyRotAngle = uTime * _RotationIntensity * 0.3;
+  float cosR = cos(skyRotAngle);
+  float sinR = sin(skyRotAngle);
+  // Rotated direction for stars and nebulae (planet stays fixed)
+  vec3 rotDir = vec3(
+    dir.x * cosR - dir.z * sinR,
+    dir.y,
+    dir.x * sinR + dir.z * cosR
+  );
+
   // === STARS ===
   vec2 starUv = vec2(
-    atan(dir.x, dir.z) / 6.28318 + 0.5,
-    asin(clamp(dir.y, -1.0, 1.0)) / 3.14159 + 0.5
+    atan(rotDir.x, rotDir.z) / 6.28318 + 0.5,
+    asin(clamp(rotDir.y, -1.0, 1.0)) / 3.14159 + 0.5
   );
   starUv += _StarsOffset;
 
@@ -184,32 +196,30 @@ void main() {
   vec3 mainStars = starsSample.rgb * _StarsIntensity;
 
   // === NEBULAE ===
-  // Multiple nebula regions scattered across the sky
-  // Use FBM noise at large scale to create nebula clouds in specific sky regions
+  // Use rotated direction so nebulae orbit with the stars
 
-  // Nebula region 1: blue-purple cloud (near planet horizon area)
-  vec2 nebulaUv1 = vec2(dir.x * 0.3 + dir.z * 0.2, dir.y * 0.4);
+  // Nebula region 1: blue-purple cloud
+  vec2 nebulaUv1 = vec2(rotDir.x * 0.3 + rotDir.z * 0.2, rotDir.y * 0.4);
   float nebulaNoise1 = fbm(nebulaUv1 * 2.0 + vec2(3.0, 7.0), vec2(uTime * 0.002, uTime * 0.001));
   float nebulaMask1 = smoothstep(0.35, 0.65, nebulaNoise1);
-  // Spatial localization: only in certain directions
-  float nebulaRegion1 = smoothstep(-0.3, 0.2, dir.x) * smoothstep(-0.5, 0.0, dir.y);
+  float nebulaRegion1 = smoothstep(-0.3, 0.2, rotDir.x) * smoothstep(-0.5, 0.0, rotDir.y);
   vec3 nebula1 = _GalaxyColor.rgb * nebulaMask1 * nebulaRegion1 * 0.35;
 
   // Nebula region 2: purple-tinted cloud (opposite side)
-  vec2 nebulaUv2 = vec2(dir.z * 0.3 - dir.x * 0.2, dir.y * 0.3 + 5.0);
+  vec2 nebulaUv2 = vec2(rotDir.z * 0.3 - rotDir.x * 0.2, rotDir.y * 0.3 + 5.0);
   float nebulaNoise2 = fbm(nebulaUv2 * 1.8 + vec2(11.0, 2.0), vec2(uTime * 0.0015, -uTime * 0.001));
   float nebulaMask2 = smoothstep(0.35, 0.65, nebulaNoise2);
-  float nebulaRegion2 = smoothstep(-0.1, 0.4, -dir.x) * smoothstep(-0.4, 0.2, dir.y);
+  float nebulaRegion2 = smoothstep(-0.1, 0.4, -rotDir.x) * smoothstep(-0.4, 0.2, rotDir.y);
   vec3 nebula2 = mix(_GalaxyColor.rgb, vec3(0.5, 0.2, 0.6), 0.5) * nebulaMask2 * nebulaRegion2 * 0.25;
 
-  // Nebula region 3: subtle wide atmospheric glow near planet horizon
-  float horizonGlow = 1.0 - abs(dir.y);
+  // Nebula region 3: subtle atmospheric glow
+  float horizonGlow = 1.0 - abs(rotDir.y);
   horizonGlow = pow(horizonGlow, 3.0) * 0.06;
   vec3 nebula3 = _GalaxyColor.rgb * horizonGlow;
 
   vec3 nebulaTotal = nebula1 + nebula2 + nebula3;
 
-  // Galaxy-colored stars scattered in nebula regions
+  // Galaxy-colored stars (also use rotated UVs)
   vec4 galaxyStarSample = texture2D(_StarsTexture, starUv * 1.3 + vec2(0.5));
   float nebulaStarMask = max(nebulaRegion1, nebulaRegion2) * 0.5 + fadeMask * 0.3;
   vec3 galaxyStars = galaxyStarSample.rgb * _GalaxyStarsColor.rgb * _GalaxyStarsMult * nebulaStarMask * 0.04;
