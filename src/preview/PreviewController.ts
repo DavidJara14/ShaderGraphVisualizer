@@ -106,6 +106,32 @@ export class PreviewController {
     this.scene.add(this.mesh);
 
     this.timeUniformRef = material.uniforms['uTime'] ?? null;
+
+    if (isSkybox) {
+      // Place camera at center of skybox sphere, looking outward
+      this.camera.position.set(0, 0, 0.001);
+      this.camera.fov = 60;
+      this.camera.near = 0.001;
+      this.camera.updateProjectionMatrix();
+      this.controls.target.set(0, 0, 0);
+      this.controls.enableZoom = false;
+      this.controls.enablePan = false;
+      this.controls.minDistance = 0.001;
+      this.controls.maxDistance = 0.002;
+      this.controls.update();
+    } else {
+      // Restore normal preview camera
+      this.camera.position.set(0, 0, 3);
+      this.camera.fov = 45;
+      this.camera.near = 0.1;
+      this.camera.updateProjectionMatrix();
+      this.controls.target.set(0, 0, 0);
+      this.controls.enableZoom = true;
+      this.controls.enablePan = true;
+      this.controls.minDistance = 0;
+      this.controls.maxDistance = Infinity;
+      this.controls.update();
+    }
   }
 
   setMesh(type: string) {
