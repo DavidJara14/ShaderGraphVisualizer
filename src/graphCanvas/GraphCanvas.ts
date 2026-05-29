@@ -87,12 +87,14 @@ export class GraphCanvas {
     });
 
     this.svg.addEventListener('mousedown', (e) => {
-      if (e.button === 1) {
+      // Pan with Ctrl+Left click or middle mouse button
+      if (e.button === 1 || (e.button === 0 && e.ctrlKey)) {
         e.preventDefault();
         this.isPanning = true;
         this.panStartX = e.clientX - this.viewX;
         this.panStartY = e.clientY - this.viewY;
         this.container.classList.add('panning');
+        return;
       }
       if (e.button === 0) {
         // Check if clicking on a context box first
@@ -198,7 +200,7 @@ export class GraphCanvas {
     });
 
     window.addEventListener('mouseup', (e) => {
-      if (e.button === 1) {
+      if (e.button === 1 || (e.button === 0 && this.isPanning)) {
         this.isPanning = false;
         this.container.classList.remove('panning');
       }
