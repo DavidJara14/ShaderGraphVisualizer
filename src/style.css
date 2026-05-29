@@ -393,6 +393,11 @@ html, body {
   background: var(--accent);
 }
 
+/* Mobile tab bar — hidden on desktop */
+#mobile-tabs {
+  display: none;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
@@ -403,4 +408,186 @@ html, body {
 ::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 3px;
+}
+
+/* ===== RESPONSIVE: Tablet (≤1024px) ===== */
+@media (max-width: 1024px) {
+  #blackboard {
+    width: 200px;
+  }
+  #right-panels {
+    width: 260px;
+  }
+  #toolbar {
+    gap: 8px;
+    padding: 6px 8px;
+  }
+  #toolbar label {
+    font-size: 11px;
+  }
+}
+
+/* ===== RESPONSIVE: Phone (≤768px) ===== */
+@media (max-width: 768px) {
+  #app {
+    height: 100dvh; /* dynamic viewport height for mobile browsers */
+  }
+
+  /* Toolbar: compact, wrapping */
+  #toolbar {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 4px 8px;
+    min-height: 34px;
+  }
+  #toolbar label {
+    font-size: 10px;
+  }
+  #toolbar select, #toolbar button {
+    font-size: 11px;
+    padding: 4px 6px;
+  }
+
+  /* Main layout: stacked, only one panel visible at a time */
+  #main {
+    flex: 1;
+    position: relative;
+  }
+
+  /* Graph canvas takes full space by default */
+  #graph-canvas {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+
+  /* Side panels become full-screen overlays */
+  #blackboard {
+    position: absolute;
+    inset: 0;
+    width: auto !important;
+    z-index: 5;
+    display: none;
+    overflow-y: auto;
+  }
+
+  #right-panels {
+    position: absolute;
+    inset: 0;
+    width: auto !important;
+    z-index: 5;
+    display: none;
+  }
+
+  /* Edit mode: blackboard (top, scrollable) + preview (bottom, fixed) side by side */
+  #app.mobile-edit #blackboard {
+    display: flex;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 45%; /* preview takes bottom 45% */
+    z-index: 5;
+    overflow-y: auto;
+  }
+  #app.mobile-edit #right-panels {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 55%; /* properties take top 55% */
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 5;
+  }
+  #app.mobile-edit #right-panels #inspector,
+  #app.mobile-edit #right-panels #preview-resize-handle {
+    display: none;
+  }
+  #app.mobile-edit #right-panels #preview {
+    flex: 1;
+  }
+
+  /* Inspector mode: full screen inspector */
+  #app.mobile-inspector #right-panels {
+    display: flex;
+    flex-direction: column;
+  }
+  #app.mobile-inspector #right-panels #inspector {
+    flex: 1;
+    overflow-y: auto;
+  }
+  #app.mobile-inspector #right-panels #preview,
+  #app.mobile-inspector #right-panels #preview-resize-handle {
+    display: none;
+  }
+
+  /* Hide resize handles on mobile */
+  .resize-handle-h,
+  .resize-handle-v {
+    display: none !important;
+  }
+
+  /* Mobile tab bar */
+  #mobile-tabs {
+    display: flex;
+    background: var(--bg-header);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    z-index: 20;
+  }
+  .mobile-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 4px;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 9px;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mobile-tab svg {
+    flex-shrink: 0;
+  }
+  .mobile-tab.active {
+    color: var(--accent);
+    background: rgba(74, 144, 226, 0.12);
+  }
+  .mobile-tab:active {
+    background: rgba(74, 144, 226, 0.2);
+  }
+
+  /* Blackboard adjustments for mobile */
+  .prop-group {
+    padding: 10px;
+  }
+  .prop-group label {
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+  .prop-group input[type="range"] {
+    height: 24px;
+  }
+  .prop-group input[type="number"] {
+    font-size: 14px;
+    padding: 4px 6px;
+    width: 70px;
+  }
+  .prop-group input[type="color"] {
+    width: 48px;
+    height: 32px;
+  }
+
+  /* Inspector adjustments */
+  #inspector-content {
+    font-size: 13px;
+    line-height: 2;
+    padding: 12px 16px;
+  }
 }

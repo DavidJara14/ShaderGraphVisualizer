@@ -45,10 +45,20 @@ export class GraphCanvas {
   private dragOffsetY = 0;
   private dragGroup: { nodes: NodeState[]; contextKey: string } | null = null;
 
+  // Touch state
+  private touchPanning = false;
+  private touchStartX = 0;
+  private touchStartY = 0;
+  private pinchStartDist = 0;
+  private pinchStartZoom = 1;
+  private pinchCenterX = 0;
+  private pinchCenterY = 0;
+
   constructor(container: HTMLElement) {
     this.container = container;
     this.createSVG();
     this.bindEvents();
+    this.bindTouchEvents();
   }
 
   private createSVG() {
@@ -208,6 +218,55 @@ export class GraphCanvas {
         this.dragNode = null;
         this.dragGroup = null;
       }
+    });
+  }
+
+  private bindTouchEvents() {
+    // Prevent default touch scrolling on the SVG canvas
+    this.svg.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (e.touches.length === 1) {
+        // Single finger: pan
+        this.touchPanning = true;
+        this.touchStartX = e.touches[0].clientX - this.viewX;
+        this.touchStartY = e.touches[0].clientY - this.viewY;
+      } else if (e.touches.length === 2) {
+        // Two fingers: pinch zoom
+        this.touchPanning = false;
+        const dx = e.touches[1].clientX - e.touches[0].clientX;
+        const dy = e.touches[1].clientY - e.touches[0].clientY;
+        this.pinchStartDist = Math.sqrt(dx * dx + dy * dy);
+        this.pinchStartZoom = this.zoom;
+        const rect = this.svg.getBoundingClientRect();
+        this.pinchCenterX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+        this.pinchCenterY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+      }
+    }, { passive: false });
+
+    this.svg.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (e.touches.length === 1 && this.touchPanning) {
+        this.viewX = e.touches[0].clientX - this.touchStartX;
+        this.viewY = e.touches[0].clientY - this.touchStartY;
+        this.applyTransform();
+      } else if (e.touches.length === 2 && this.pinchStartDist > 0) {
+        const dx = e.touches[1].clientX - e.touches[0].clientX;
+        const dy = e.touches[1].clientY - e.touches[0].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const scale = dist / this.pinchStartDist;
+        const oldZoom = this.zoom;
+        this.zoom = Math.max(0.05, Math.min(5, this.pinchStartZoom * scale));
+
+        // Zoom toward pinch center
+        this.viewX = this.pinchCenterX - (this.pinchCenterX - this.viewX) * (this.zoom / oldZoom);
+        this.viewY = this.pinchCenterY - (this.pinchCenterY - this.viewY) * (this.zoom / oldZoom);
+        this.applyTransform();
+      }
+    }, { passive: false });
+
+    this.svg.addEventListener('touchend', () => {
+      this.touchPanning = false;
+      this.pinchStartDist = 0;
     });
   }
 

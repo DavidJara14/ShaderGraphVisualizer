@@ -138,6 +138,9 @@ function init() {
 
   // --- Resize handles ---
   setupResizeHandles();
+
+  // --- Mobile panel tabs ---
+  setupMobileTabs();
 }
 
 function setupResizeHandles() {
@@ -196,6 +199,41 @@ function setupResizeHandles() {
       document.body.style.userSelect = '';
     }
   });
+}
+
+function setupMobileTabs() {
+  const tabs = document.querySelectorAll<HTMLButtonElement>('.mobile-tab');
+  const appEl = document.getElementById('app')!;
+
+  function setPanel(panel: string) {
+    // Update tab active state
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.panel === panel));
+
+    // Reset all mobile mode classes on #app
+    appEl.classList.remove('mobile-edit', 'mobile-inspector');
+
+    switch (panel) {
+      case 'graph':
+        // Graph is always visible; just hide overlays
+        break;
+      case 'edit':
+        appEl.classList.add('mobile-edit');
+        break;
+      case 'inspector':
+        appEl.classList.add('mobile-inspector');
+        break;
+    }
+  }
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const panel = tab.dataset.panel;
+      if (panel) setPanel(panel);
+    });
+  });
+
+  // Set default active tab
+  setPanel('graph');
 }
 
 init();
